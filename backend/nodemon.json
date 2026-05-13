@@ -1,0 +1,6 @@
+{
+  "watch": ["src"],
+  "ext": "ts,json",
+  "ignore": ["src/**/*.integration.ts"],
+  "exec": "tsx src/index.ts"
+}

@@ -1,0 +1,48 @@
+{
+  "name": "shopgiest-hub-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "seed": "tsx src/scripts/seed.ts",
+    "test:auth": "tsx src/scripts/smoke-auth.integration.ts",
+    "test:catalog": "tsx src/scripts/smoke-catalog.integration.ts",
+    "test:buyer": "tsx src/scripts/smoke-buyer.integration.ts",
+    "test:checkout": "tsx src/scripts/smoke-checkout.integration.ts",
+    "test:seller": "tsx src/scripts/smoke-seller.integration.ts",
+    "test:admin": "tsx src/scripts/smoke-admin.integration.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.10.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.8.0",
+    "multer": "^2.1.1",
+    "pino": "^9.5.0",
+    "pino-http": "^10.3.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^22.9.0",
+    "@types/supertest": "^7.2.0",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
