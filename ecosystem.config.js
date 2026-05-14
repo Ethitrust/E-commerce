@@ -15,6 +15,7 @@ module.exports = {
       cwd: "./frontend",
       script: "npm",
       args: "start",
+      pmx: false,
       env: {
         PORT: 8080,
         NODE_ENV: "production",
