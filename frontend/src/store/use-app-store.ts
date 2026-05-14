@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { toast } from "sonner";
 
 import { ApiError, fetchJson } from "@/lib/api/client";
@@ -93,6 +93,18 @@ interface AppState {
   recent: string[];
   pushRecent: (id: string) => Promise<void>;
 }
+
+/** Avoid touching `localStorage` during Node SSR (ReferenceError → HTTP 500). */
+const marketplacePersistStorage = createJSONStorage(() => {
+  if (typeof window === "undefined") {
+    return {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    };
+  }
+  return localStorage;
+});
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -229,6 +241,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "nexus-marketplace",
+      storage: marketplacePersistStorage,
       partialize: (s) => ({
         user: s.user,
         theme: s.theme,
