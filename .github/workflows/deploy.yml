@@ -29,7 +29,9 @@ jobs:
 
             npm install
 
-            pm2 restart nexus-backend || PORT=4000 pm2 start npm --name nexus-backend -- start
+            npm run build
+
+            pm2 restart nexus-backend || PORT=4000 pm2 start dist/index.js --name nexus-backend
 
             cd ..
 
