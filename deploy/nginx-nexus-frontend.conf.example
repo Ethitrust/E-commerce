@@ -1,0 +1,42 @@
+# TanStack Start + Nitro (PM2 on 127.0.0.1:8080)
+# Replace SSL paths and server_name as needed.
+#
+# Common mistakes that cause 500 / redirect cycles:
+# - root + try_files /index.html  →  there is NO index.html in dist/client for this stack
+# - proxy_pass http://localhost:8080  →  nginx may resolve localhost to [::1]; use 127.0.0.1
+#
+# Install: sudo cp ... /etc/nginx/sites-available/nexus && sudo ln -sf ... sites-enabled/
+#         sudo nginx -t && sudo systemctl reload nginx
+
+server {
+    listen 443 ssl http2;
+    server_name nexus.sheqaygames.com;
+
+    # ssl_certificate /etc/letsencrypt/live/nexus.sheqaygames.com/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/nexus.sheqaygames.com/privkey.pem;
+
+    client_max_body_size 25m;
+
+    location / {
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_read_timeout 60s;
+        proxy_pass http://127.0.0.1:8080;
+    }
+}
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 80;
+    server_name nexus.sheqaygames.com;
+    return 301 https://$host$request_uri;
+}
