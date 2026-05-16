@@ -43,7 +43,11 @@ function AdminSellersPage() {
       body,
     }: {
       id: string;
-      body: { status?: "pending" | "approved" | "suspended"; verified?: boolean };
+      body: {
+        status?: "pending" | "approved" | "suspended";
+        verified?: boolean;
+        whoPaysFees?: "buyer" | "seller" | "split";
+      };
     }) => patchAdminSeller(id, body),
     onSuccess: (_, vars) => {
       void qc.invalidateQueries({ queryKey: ["admin"] });
@@ -100,13 +104,14 @@ function AdminSellersPage() {
               <th className="px-4 py-3">Owner</th>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Escrow fees</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {sellers.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-muted-foreground" colSpan={6}>
+                <td className="px-4 py-8 text-muted-foreground" colSpan={7}>
                   No sellers match this filter.
                 </td>
               </tr>
@@ -121,6 +126,27 @@ function AdminSellersPage() {
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase">
                       {s.status}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Select
+                      value={s.whoPaysFees}
+                      onValueChange={(v) =>
+                        patchMutation.mutate({
+                          id: s.id,
+                          body: { whoPaysFees: v as "buyer" | "seller" | "split" },
+                        })
+                      }
+                      disabled={busy}
+                    >
+                      <SelectTrigger className="h-8 w-[120px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="split">Split</SelectItem>
+                        <SelectItem value="buyer">Buyer</SelectItem>
+                        <SelectItem value="seller">Seller</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </td>
                   <td className="px-4 py-3 text-right">
                     {s.status === "pending" ? (

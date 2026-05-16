@@ -11,6 +11,7 @@ import type { Product, Seller } from "@/lib/mock-data";
 import { getSeller } from "@/lib/mock-data";
 import { ApiError } from "@/lib/api/client";
 import { fetchProductBySlug, fetchProductsList, fetchSellerStorefront } from "@/lib/api/catalog";
+import { formatPrice } from "@/lib/utils";
 import { useAppStore } from "@/store/use-app-store";
 import { toast } from "sonner";
 
@@ -185,14 +186,14 @@ function ProductDetailPage() {
 
             <div className="mt-6 rounded-2xl border border-border bg-surface p-5">
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-bold">${product.price}</span>
+                <span className="text-3xl font-bold">{formatPrice(product.price, product.currency)}</span>
                 {product.originalPrice && (
                   <>
                     <span className="text-base text-muted-foreground line-through">
-                      ${product.originalPrice}
+                      {formatPrice(product.originalPrice, product.currency)}
                     </span>
                     <span className="rounded bg-success/15 px-2 py-0.5 text-xs font-bold text-success">
-                      Save ${product.originalPrice - product.price}
+                      Save {formatPrice(product.originalPrice - product.price, product.currency)}
                     </span>
                   </>
                 )}

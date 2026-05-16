@@ -84,6 +84,16 @@ export type SellerOrderLine = {
   lineTotal: number;
 };
 
+export type SellerOrderEscrow = {
+  escrowId: string;
+  escrowStatus: string;
+  inviteeEmail: string;
+  amount: number;
+  currency: string;
+  whoPaysFees: "buyer" | "seller" | "split";
+  lastEventAt: string | null;
+};
+
 export type SellerOrder = {
   orderNumber: string;
   status: string;
@@ -94,6 +104,8 @@ export type SellerOrder = {
   buyerEmail: string;
   sellerLines: SellerOrderLine[];
   sellerLinesRevenue: number;
+  /** This seller's escrow on this order, if any. */
+  escrow: SellerOrderEscrow | null;
 };
 
 export async function fetchSellerDashboardStats(): Promise<SellerDashboardStats> {
@@ -108,6 +120,16 @@ export async function fetchSellerProducts(): Promise<SellerProduct[]> {
 export async function fetchSellerOrders(): Promise<SellerOrder[]> {
   const { orders } = await fetchJsonAuthed<{ orders: SellerOrder[] }>("/seller/orders");
   return orders;
+}
+
+/** Triggers Ethitrust to resend the buyer's escrow invitation email. */
+export async function resendSellerEscrowInvitation(
+  orderNumber: string,
+): Promise<{ escrowId: string; resent: boolean }> {
+  return fetchJsonAuthed<{ escrowId: string; resent: boolean }>(
+    `/seller/orders/${encodeURIComponent(orderNumber)}/escrow/resend`,
+    { method: "POST" },
+  );
 }
 
 export async function createSellerProduct(body: SellerProductCreateBody): Promise<SellerProduct> {

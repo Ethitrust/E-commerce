@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useAppStore } from "@/store/use-app-store";
 import type { Product } from "@/lib/mock-data";
 import { getSeller } from "@/lib/mock-data";
-import { cn } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface Props {
@@ -127,10 +127,10 @@ export function ProductCard({ product, index = 0 }: Props) {
         <div className="mt-1 flex items-end justify-between">
           <div>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-base font-bold">${product.price}</span>
+              <span className="text-base font-bold">{formatPrice(product.price, product.currency)}</span>
               {product.originalPrice && (
                 <span className="text-xs text-muted-foreground line-through">
-                  ${product.originalPrice}
+                  {formatPrice(product.originalPrice, product.currency)}
                 </span>
               )}
             </div>

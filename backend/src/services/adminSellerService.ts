@@ -12,6 +12,7 @@ export type AdminSellerJson = {
   handle: string;
   status: string;
   verified: boolean;
+  whoPaysFees: "buyer" | "seller" | "split";
   ownerUserId: string;
   ownerName: string;
   ownerEmail: string;
@@ -56,6 +57,7 @@ export async function listSellersForAdmin(q: AdminSellersListQuery): Promise<Adm
       handle: doc.handle,
       status: doc.status as string,
       verified: Boolean(doc.verified),
+      whoPaysFees: (doc.whoPaysFees as AdminSellerJson["whoPaysFees"]) ?? "split",
       ownerUserId: oid,
       ownerName: ou?.name ?? "",
       ownerEmail: ou?.email ?? "",
@@ -86,6 +88,9 @@ export async function patchSellerByAdmin(
   if (body.verified !== undefined) {
     doc.verified = body.verified;
   }
+  if (body.whoPaysFees !== undefined) {
+    doc.whoPaysFees = body.whoPaysFees as typeof doc.whoPaysFees;
+  }
 
   await doc.save();
 
@@ -98,6 +103,7 @@ export async function patchSellerByAdmin(
     handle: doc.handle,
     status: doc.status as string,
     verified: Boolean(doc.verified),
+    whoPaysFees: (doc.whoPaysFees as AdminSellerJson["whoPaysFees"]) ?? "split",
     ownerUserId: (doc.ownerUserId as Types.ObjectId).toString(),
     ownerName: owner?.name ?? "",
     ownerEmail: owner?.email ?? "",

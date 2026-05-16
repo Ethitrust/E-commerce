@@ -21,6 +21,7 @@ export type AdminSellerRow = {
   handle: string;
   status: string;
   verified: boolean;
+  whoPaysFees: "buyer" | "seller" | "split";
   ownerUserId: string;
   ownerName: string;
   ownerEmail: string;
@@ -99,7 +100,11 @@ export async function fetchAdminProducts(searchParams?: {
 
 export async function patchAdminSeller(
   sellerId: string,
-  body: { status?: "pending" | "approved" | "suspended"; verified?: boolean },
+  body: {
+    status?: "pending" | "approved" | "suspended";
+    verified?: boolean;
+    whoPaysFees?: "buyer" | "seller" | "split";
+  },
 ): Promise<AdminSellerRow> {
   const { seller } = await fetchJsonAuthed<{ seller: AdminSellerRow }>(
     `/admin/sellers/${encodeURIComponent(sellerId)}`,

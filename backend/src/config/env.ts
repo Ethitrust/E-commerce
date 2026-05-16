@@ -27,6 +27,18 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
+
+  /**
+   * Ethitrust org-escrows integration. When ETHITRUST_API_KEY is set, every checkout
+   * creates one escrow per distinct seller on the order. If unset, checkout still works
+   * but skips escrow creation (logged as a warning).
+   */
+  ETHITRUST_API_KEY: z.string().optional(),
+  ETHITRUST_BASE_URL: z.string().default("https://api.ethitrust.me"),
+  /** Optional shared secret used to verify inbound `X-Signature` on the webhook endpoint. */
+  ETHITRUST_WEBHOOK_SECRET: z.string().optional(),
+  /** Used when a seller has no `whoPaysFees` override set. */
+  ETHITRUST_DEFAULT_WHO_PAYS_FEES: z.enum(["buyer", "seller", "split"]).default("split"),
 });
 
 function loadEnv(): z.infer<typeof envSchema> {

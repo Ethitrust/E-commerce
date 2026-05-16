@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { getAccessToken } from "@/lib/api/auth-session";
 import { fetchMyOrders } from "@/lib/api/orders";
 import { isDemoProfileUser } from "@/lib/auth/profile";
+import { formatPrice } from "@/lib/utils";
 import { useAppStore } from "@/store/use-app-store";
 
 export const Route = createFileRoute("/orders")({
@@ -122,7 +123,7 @@ function OrdersPage() {
                       Placed {formatDisplayDate(o.createdAt)}
                     </p>
                   </div>
-                  <p className="text-base font-bold tabular-nums">${o.total.toLocaleString()}</p>
+                  <p className="text-base font-bold tabular-nums">{formatPrice(o.total, o.currency)}</p>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-3">
                   {o.lineItems.map((line) => (
@@ -138,7 +139,7 @@ function OrdersPage() {
                       <div className="min-w-0 flex-1">
                         <p className="line-clamp-1 text-xs font-semibold">{line.title}</p>
                         <p className="text-[11px] text-muted-foreground">
-                          ${line.unitPrice.toLocaleString()} × {line.quantity}
+                          {formatPrice(line.unitPrice, o.currency)} × {line.quantity}
                         </p>
                       </div>
                       <Package className="h-4 w-4 shrink-0 text-muted-foreground" />

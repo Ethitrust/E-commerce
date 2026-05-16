@@ -388,4 +388,46 @@ Adjust names to your framework conventions; keep secrets out of the repo.
 
 ---
 
+## Ethitrust escrow integration
+
+The backend integrates with [`@ethitrust/sdk`](https://www.npmjs.com/package/@ethitrust/sdk) to protect every checkout with one org-escrow per distinct seller on the order.
+
+### Configuration
+
+| Variable | Purpose |
+|---|---|
+| `ETHITRUST_API_KEY` | When set, escrow creation is enabled. When unset, checkout silently skips the escrow step. |
+| `ETHITRUST_BASE_URL` | Defaults to `https://api.ethitrust.me`. |
+| `ETHITRUST_WEBHOOK_SECRET` | Optional. Used to HMAC-verify `X-Signature` on inbound webhooks. |
+| `ETHITRUST_DEFAULT_WHO_PAYS_FEES` | Fallback when a seller has no `whoPaysFees` override. One of `buyer` / `seller` / `split`. |
+
+### Checkout flow
+
+`POST /api/v1/checkout` opens a MongoDB transaction. After writing the `Order` document but before clearing the cart it:
+
+1. Groups the order's line items by `sellerId` and computes the per-seller subtotal.
+2. Loads each `Seller` doc (single round-trip) to read `whoPaysFees` + `name`.
+3. For each group calls `client.orgEscrows.create({ invitee_email: shippingAddress.email, title, amount, currency: order.currency, escrow_type: 'onetime', who_pays_fees })` with idempotency key `"${orderNumber}:${sellerId}"`.
+4. Persists `{ sellerId, escrowId, escrowStatus, inviteeEmail, amount, currency, whoPaysFees }` to `orders.sellerEscrows[]`.
+
+If any SDK call throws the transaction rolls back — stock decrement and cart clearance are reverted and the buyer sees an error.
+
+### Order schema additions
+
+`orders` documents now carry a `sellerEscrows` sub-array (one entry per distinct seller on the order). A sparse unique index on `sellerEscrows.escrowId` powers fast webhook lookups.
+
+### Webhook
+
+`POST /api/v1/webhooks/ethitrust` — **public**, no auth header. The route is mounted *before* `express.json` so the raw `Buffer` is available for HMAC verification. The handler updates the matching `sellerEscrows.$.escrowStatus` + `lastEventAt`. Unknown `escrow_id` values are logged and acknowledged with `204` to prevent retry storms.
+
+### Seller-facing endpoints
+
+`POST /api/v1/seller/orders/:orderNumber/escrow/resend` — resends the buyer's escrow invitation for that seller's escrow on that order. Authorisation is performed by matching the calling seller's `sellerProfileId` against `sellerEscrows.sellerId`.
+
+### Currency
+
+The marketplace is denominated in ETB. Run `npm run migrate:currency-etb` once after deploying to upgrade legacy USD rows. Numeric values are not converted — that's an explicit choice; add an FX step if required.
+
+---
+
 *Derived from `frontend/src/lib/mock-data.ts`, `frontend/src/store/use-app-store.ts`, and marketplace/seller/admin route behavior as of the spec authoring date.*

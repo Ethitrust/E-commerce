@@ -1,25 +1,50 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronDown } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, Mail } from "lucide-react";
+import { toast } from "sonner";
 
-import { fetchSellerOrders } from "@/lib/api/seller";
+import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api/client";
+import { fetchSellerOrders, resendSellerEscrowInvitation } from "@/lib/api/seller";
+import { formatPrice } from "@/lib/utils";
 import { useAppStore } from "@/store/use-app-store";
 
 export const Route = createFileRoute("/seller/orders")({
   component: SellerOrdersPage,
 });
 
-function formatUsd(amount: number): string {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amount);
+function escrowStatusClass(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "active" || s === "submitted" || s === "in_review" || s === "completed") {
+    return "bg-success/15 text-success";
+  }
+  if (s === "cancelled" || s === "rejected" || s === "expired") {
+    return "bg-destructive/15 text-destructive";
+  }
+  if (s === "pending" || s === "invited" || s === "disputed") {
+    return "bg-warning/15 text-warning-foreground";
+  }
+  return "bg-muted text-muted-foreground";
 }
 
 function SellerOrdersPage() {
   const user = useAppStore((s) => s.user);
+  const qc = useQueryClient();
 
   const ordersQuery = useQuery({
     queryKey: ["seller", "orders", user?.id],
     queryFn: fetchSellerOrders,
     staleTime: 15_000,
+  });
+
+  const resendMutation = useMutation({
+    mutationFn: (orderNumber: string) => resendSellerEscrowInvitation(orderNumber),
+    onSuccess: () => {
+      toast.success("Escrow invitation resent");
+      void qc.invalidateQueries({ queryKey: ["seller", "orders"] });
+    },
+    onError: (err: unknown) =>
+      toast.error(err instanceof ApiError ? err.message : "Could not resend invitation"),
   });
 
   if (ordersQuery.isPending) {
@@ -58,6 +83,7 @@ function SellerOrdersPage() {
               <th className="px-4 py-3">Product</th>
               <th className="px-4 py-3">Customer</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Escrow</th>
               <th className="px-4 py-3 text-right">Your total</th>
               <th className="px-4 py-3 w-10" aria-hidden />
             </tr>
@@ -65,7 +91,7 @@ function SellerOrdersPage() {
           <tbody>
             {orders.length === 0 ? (
               <tr>
-                <td className="px-4 py-12 text-muted-foreground text-center" colSpan={7}>
+                <td className="px-4 py-12 text-muted-foreground text-center" colSpan={8}>
                   No orders include your listings yet.
                 </td>
               </tr>
@@ -108,8 +134,32 @@ function SellerOrdersPage() {
                         {o.status}
                       </span>
                     </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {o.escrow ? (
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${escrowStatusClass(o.escrow.escrowStatus)}`}
+                            title={o.escrow.escrowId}
+                          >
+                            {o.escrow.escrowStatus}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={resendMutation.isPending}
+                            onClick={() => resendMutation.mutate(o.orderNumber)}
+                            title="Resend escrow invitation email to the buyer"
+                          >
+                            <Mail className="mr-1 h-3 w-3" />
+                            Resend
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                      {formatUsd(o.sellerLinesRevenue)}
+                      {formatPrice(o.sellerLinesRevenue, o.currency)}
                     </td>
                     <td className="px-4 py-3">
                       {hasExtras ? (
@@ -128,7 +178,7 @@ function SellerOrdersPage() {
                                   {line.title}
                                 </span>
                                 <span className="shrink-0 tabular-nums text-muted-foreground">
-                                  ×{line.quantity} · {formatUsd(line.lineTotal)}
+                                  ×{line.quantity} · {formatPrice(line.lineTotal, o.currency)}
                                 </span>
                               </li>
                             ))}
