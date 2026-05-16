@@ -62,7 +62,22 @@ Defined and validated in `backend/src/config/env.ts`:
 | `REFRESH_COOKIE_NAME`                       | Default `refresh`                      |
 | `DEV_SEED_PASSWORD`                         | Optional; used by `npm run seed`       |
 | `CLOUDINARY_*`                              | Optional trio for seller image uploads |
+| `ETHITRUST_API_KEY`                         | Optional. Enables per-seller Ethitrust org-escrows during checkout. |
+| `ETHITRUST_BASE_URL`                        | Default `https://api.ethitrust.me`     |
+| `ETHITRUST_WEBHOOK_SECRET`                  | Optional shared secret for inbound webhook `X-Signature` HMAC verification |
+| `ETHITRUST_DEFAULT_WHO_PAYS_FEES`           | `buyer` / `seller` / `split` — fallback when a seller has none configured |
 
+
+## Ethitrust escrow integration
+
+When `ETHITRUST_API_KEY` is set, every checkout creates **one org-escrow per distinct seller** on the order via [`@ethitrust/sdk`](https://www.npmjs.com/package/@ethitrust/sdk). The buyer's shipping email is the invitee (they receive the funding invitation), the per-seller subtotal is the amount, and the `who_pays_fees` value comes from the seller's `whoPaysFees` setting (managed by admins on `/admin/sellers`).
+
+- **Currency:** the marketplace is denominated in **ETB**. Run `npm run migrate:currency-etb` once after deploying this version to rewrite any legacy `USD` rows on `products` and `orders`.
+- **Webhooks:** Ethitrust should POST status updates to `POST /api/v1/webhooks/ethitrust`. The route is mounted before the global JSON parser so the raw body is HMAC-verified against `ETHITRUST_WEBHOOK_SECRET` (skipped when unset).
+- **Resend invitation:** sellers can resend the buyer's escrow email from `/seller/orders` (proxied to `client.orgEscrows.resendInvitation(escrowId)`).
+- **Idempotency:** each escrow is created with `idempotencyKey = "<orderNumber>:<sellerId>"` so the SDK's automatic retries collapse to a single Ethitrust escrow.
+
+If `ETHITRUST_API_KEY` is unset, checkout still works and silently skips escrow creation (`sellerEscrows` stays empty on the order). This makes local development without a real Ethitrust key transparent.
 
 ## Testing and data
 

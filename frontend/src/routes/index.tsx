@@ -10,6 +10,7 @@ import { ProductCard } from "@/components/marketplace/ProductCard";
 import { SellerCard } from "@/components/marketplace/SellerCard";
 import { SectionHeader } from "@/components/marketplace/SectionHeader";
 import { fetchApprovedSellers, fetchCategories, fetchProductsList } from "@/lib/api/catalog";
+import { formatPrice } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -123,7 +124,7 @@ function HomePage() {
                     />
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
                       <p className="line-clamp-1 text-xs font-semibold">{p.title}</p>
-                      <p className="text-sm font-bold text-primary">${p.price}</p>
+                      <p className="text-sm font-bold text-primary">{formatPrice(p.price, p.currency)}</p>
                     </div>
                     {i === 0 && (
                       <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">

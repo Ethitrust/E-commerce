@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ShoppingBag, Trash2 } from "lucide-react";
 import { SiteShell } from "@/components/layout/SiteShell";
 import { Button } from "@/components/ui/button";
+import { formatPrice } from "@/lib/utils";
 import { useAppStore } from "@/store/use-app-store";
 
 export const Route = createFileRoute("/cart")({
@@ -11,7 +12,7 @@ export const Route = createFileRoute("/cart")({
 function CartPage() {
   const { cart, removeFromCart, updateQuantity } = useAppStore();
   const subtotal = cart.reduce((s, c) => s + c.product.price * c.quantity, 0);
-  const shipping = cart.length ? 12 : 0;
+  const shipping = cart.length ? 300 : 0;
   const total = subtotal + shipping;
 
   return (
@@ -74,7 +75,7 @@ function CartPage() {
                         </button>
                       </div>
                       <p className="text-base font-bold">
-                        ${(c.product.price * c.quantity).toLocaleString()}
+                        {formatPrice(c.product.price * c.quantity, c.product.currency)}
                       </p>
                     </div>
                   </div>
@@ -93,11 +94,11 @@ function CartPage() {
               <dl className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <dt>Subtotal</dt>
-                  <dd className="tabular-nums">${subtotal.toLocaleString()}</dd>
+                  <dd className="tabular-nums">{formatPrice(subtotal)}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt>Shipping</dt>
-                  <dd className="tabular-nums">${shipping}</dd>
+                  <dd className="tabular-nums">{formatPrice(shipping)}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Tax</dt>
@@ -107,7 +108,7 @@ function CartPage() {
               <div className="my-4 border-t border-border" />
               <div className="flex justify-between text-base font-bold">
                 <span>Total</span>
-                <span className="tabular-nums">${total.toLocaleString()}</span>
+                <span className="tabular-nums">{formatPrice(total)}</span>
               </div>
               <Link to="/checkout" className="mt-5 block">
                 <Button className="w-full">Checkout</Button>

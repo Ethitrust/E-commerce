@@ -4,12 +4,19 @@ export const adminSellerPatchSchema = z
   .object({
     status: z.enum(["pending", "approved", "suspended"]).optional(),
     verified: z.boolean().optional(),
+    whoPaysFees: z.enum(["buyer", "seller", "split"]).optional(),
   })
   .strict()
-  .refine((body) => body.status !== undefined || body.verified !== undefined, {
-    message: "At least one field is required",
-    path: ["body"],
-  });
+  .refine(
+    (body) =>
+      body.status !== undefined ||
+      body.verified !== undefined ||
+      body.whoPaysFees !== undefined,
+    {
+      message: "At least one field is required",
+      path: ["body"],
+    },
+  );
 
 export type AdminSellerPatchInput = z.infer<typeof adminSellerPatchSchema>;
 

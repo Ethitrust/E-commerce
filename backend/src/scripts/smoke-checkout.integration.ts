@@ -69,10 +69,32 @@ async function main() {
       })
       .expect(201);
 
-    const order = res.body.order as { orderNumber: string; total: number; lineItems: unknown[] };
+    const order = res.body.order as {
+      orderNumber: string;
+      total: number;
+      currency: string;
+      lineItems: unknown[];
+      sellerEscrows: Array<{ escrowId: string; escrowStatus: string }>;
+    };
     assert.ok(order.orderNumber?.startsWith("NX-"));
     assert.ok(Number.isFinite(order.total));
     assert.equal(order.lineItems.length, 1);
+    assert.equal(order.currency, "ETB", "marketplace currency should be ETB");
+    assert.ok(Array.isArray(order.sellerEscrows), "sellerEscrows should be an array");
+    if (process.env.ETHITRUST_API_KEY) {
+      // Live key present → one escrow per distinct seller.
+      assert.ok(order.sellerEscrows.length >= 1, "expected at least one escrow when Ethitrust is enabled");
+      for (const e of order.sellerEscrows) {
+        assert.ok(e.escrowId, "escrow entries must carry an escrowId");
+        assert.ok(e.escrowStatus, "escrow entries must carry a status");
+      }
+    } else {
+      assert.equal(
+        order.sellerEscrows.length,
+        0,
+        "sellerEscrows should be empty when Ethitrust is disabled",
+      );
+    }
 
     res = await request(app).get("/api/v1/me/orders").set(auth).expect(200);
     assert.ok(Array.isArray(res.body.orders));

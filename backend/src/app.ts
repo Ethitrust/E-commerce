@@ -9,6 +9,7 @@ import { AppError } from "./errors.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { healthRouter } from "./routes/health.js";
 import { apiV1Router } from "./routes/v1/index.js";
+import webhooksRouter from "./routes/v1/webhooks.js";
 
 function parseCorsOrigins(raw: string): string[] | false {
   const list = raw
@@ -28,6 +29,10 @@ export function createApp() {
 
   const app = express();
   app.use(pinoHttp({ logger }));
+
+  // Webhook routes must be mounted BEFORE `express.json` because they parse the
+  // request body as a raw Buffer for HMAC signature verification.
+  app.use("/api/v1/webhooks", webhooksRouter);
 
   app.use(express.json({ limit: "256kb" }));
   app.use(cookieParser());

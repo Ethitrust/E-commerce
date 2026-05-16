@@ -24,7 +24,7 @@ const productSchema = new Schema(
     },
     price: { type: Number, required: true, min: 0 },
     originalPrice: { type: Number, min: 0 },
-    currency: { type: String, required: true, default: "USD", trim: true },
+    currency: { type: String, required: true, default: "ETB", trim: true },
     rating: { type: Number, required: true, default: 0, min: 0 },
     reviews: { type: Number, required: true, default: 0, min: 0 },
     sold: { type: Number, required: true, default: 0, min: 0 },

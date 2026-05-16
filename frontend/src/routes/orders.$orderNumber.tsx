@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Package } from "lucide-react";
+import { ArrowLeft, Package, ShieldCheck } from "lucide-react";
 
 import { SiteShell } from "@/components/layout/SiteShell";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,41 @@ import { ApiError } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/api/auth-session";
 import { fetchMyOrder } from "@/lib/api/orders";
 import { isDemoProfileUser } from "@/lib/auth/profile";
+import { formatPrice } from "@/lib/utils";
 import { useAppStore } from "@/store/use-app-store";
 
 export const Route = createFileRoute("/orders/$orderNumber")({
   component: OrderDetailPage,
 });
+
+export type EscrowStatus =
+  | "invited"
+  | "counter_pending_initiator"
+  | "counter_pending_counterparty"
+  | "rejected"
+  | "expired"
+  | "pending"
+  | "active"
+  | "submitted"
+  | "in_review"
+  | "completed"
+  | "disputed"
+  | "cancelled"
+  | "refunded";
+
+function escrowStatusClass(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "active" || s === "submitted" || s === "in_review" || s === "completed") {
+    return "bg-success/15 text-success";
+  }
+  if (s === "cancelled" || s === "rejected" || s === "expired") {
+    return "bg-destructive/15 text-destructive";
+  }
+  if (s === "pending" || s === "invited" || s === "disputed") {
+    return "bg-warning/15 text-warning-foreground";
+  }
+  return "bg-muted text-muted-foreground";
+}
 
 function formatDisplayDate(iso: string): string {
   try {
@@ -96,7 +126,7 @@ function OrderDetailPage() {
               Placed {formatDisplayDate(o.createdAt)} · {o.status}
             </p>
           </div>
-          <p className="text-xl font-bold tabular-nums">${o.total.toLocaleString()}</p>
+          <p className="text-xl font-bold tabular-nums">{formatPrice(o.total, o.currency)}</p>
         </div>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-2">
@@ -123,19 +153,59 @@ function OrderDetailPage() {
             <dl className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between">
                 <dt>Subtotal</dt>
-                <dd className="tabular-nums">${o.subtotal.toLocaleString()}</dd>
+                <dd className="tabular-nums">{formatPrice(o.subtotal, o.currency)}</dd>
               </div>
               <div className="flex justify-between">
                 <dt>Shipping</dt>
-                <dd className="tabular-nums">${o.shipping.toLocaleString()}</dd>
+                <dd className="tabular-nums">{formatPrice(o.shipping, o.currency)}</dd>
               </div>
               <div className="flex justify-between font-bold">
                 <dt>Total</dt>
-                <dd className="tabular-nums">${o.total.toLocaleString()}</dd>
+                <dd className="tabular-nums">{formatPrice(o.total, o.currency)}</dd>
               </div>
             </dl>
           </div>
         </div>
+
+        {o.sellerEscrows.length > 0 && (
+          <section className="mt-8 rounded-2xl border border-border bg-surface p-5">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-bold">Escrow protection</h2>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Your payment to each seller is held in a separate escrow until you confirm receipt.
+              Check your email at{" "}
+              <span className="font-semibold text-foreground">{o.shippingAddress.email}</span> for
+              the funding invitation.
+            </p>
+            <ul className="mt-4 space-y-3">
+              {o.sellerEscrows.map((esc) => (
+                <li
+                  key={esc.escrowId}
+                  className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-background p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-mono text-[11px] text-muted-foreground">{esc.escrowId}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Fees: <span className="capitalize">{esc.whoPaysFees}</span>
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${escrowStatusClass(esc.escrowStatus)}`}
+                    >
+                      {esc.escrowStatus}
+                    </span>
+                    <span className="text-sm font-bold tabular-nums">
+                      {formatPrice(esc.amount, esc.currency)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <h2 className="mt-10 text-lg font-bold">Items</h2>
         <div className="mt-4 space-y-3">
@@ -152,7 +222,7 @@ function OrderDetailPage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{line.title}</p>
                 <p className="text-xs text-muted-foreground">
-                  ${line.unitPrice.toLocaleString()} × {line.quantity}
+                  {formatPrice(line.unitPrice, o.currency)} × {line.quantity}
                 </p>
               </div>
               <Package className="h-4 w-4 text-muted-foreground" />

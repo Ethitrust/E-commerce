@@ -19,6 +19,19 @@ export type OrderShippingAddressDTO = {
   country: string;
 };
 
+export type OrderSellerEscrowDTO = {
+  sellerId: string;
+  escrowId: string;
+  escrowStatus: string;
+  inviteeEmail: string;
+  amount: number;
+  currency: string;
+  whoPaysFees: "buyer" | "seller" | "split";
+  createdAt: string;
+  updatedAt: string;
+  lastEventAt: string | null;
+};
+
 export type OrderSummaryDTO = {
   orderNumber: string;
   status: string;
@@ -29,6 +42,8 @@ export type OrderSummaryDTO = {
   paymentMethod: string;
   shippingAddress: OrderShippingAddressDTO;
   lineItems: OrderLineItemDTO[];
+  /** Ethitrust escrows. Empty array when the integration is disabled or the order pre-dates it. */
+  sellerEscrows: OrderSellerEscrowDTO[];
   createdAt: string;
   updatedAt: string;
 };

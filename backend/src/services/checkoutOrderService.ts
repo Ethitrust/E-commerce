@@ -3,15 +3,18 @@ import { randomBytes } from "node:crypto";
 import { Types } from "mongoose";
 import mongoose from "mongoose";
 
+import { env } from "../config/env.js";
 import { AppError } from "../errors.js";
+import { createOrgEscrow, isEthitrustEnabled, type WhoPaysFees } from "../lib/ethitrust.js";
 import type { ProductDocument } from "../models/Product.js";
 import { CartItem } from "../models/CartItem.js";
 import { Order } from "../models/Order.js";
 import { Product } from "../models/Product.js";
+import { Seller } from "../models/Seller.js";
 import { catalogPublishedListingFilter } from "./catalogPublishedFilter.js";
 import type { CheckoutBodyInput } from "../validators/checkoutSchemas.js";
 
-const SHIPPING_FLAT_USD = 12;
+const SHIPPING_FLAT_ETB = 300;
 
 function allocateOrderNumber(): string {
   return `NX-${randomBytes(6).toString("hex").toUpperCase()}`;
@@ -33,6 +36,19 @@ export type OrderLineItemJson = {
   image: string;
 };
 
+export type OrderSellerEscrowJson = {
+  sellerId: string;
+  escrowId: string;
+  escrowStatus: string;
+  inviteeEmail: string;
+  amount: number;
+  currency: string;
+  whoPaysFees: "buyer" | "seller" | "split";
+  createdAt: string;
+  updatedAt: string;
+  lastEventAt: string | null;
+};
+
 export type OrderSummaryJson = {
   orderNumber: string;
   status: string;
@@ -43,6 +59,7 @@ export type OrderSummaryJson = {
   paymentMethod: string;
   shippingAddress: CheckoutBodyInput["shippingAddress"];
   lineItems: OrderLineItemJson[];
+  sellerEscrows: OrderSellerEscrowJson[];
   createdAt: string;
   updatedAt: string;
 };
@@ -57,6 +74,19 @@ type LeanLineItem = {
   image: string;
 };
 
+type LeanSellerEscrow = {
+  sellerId: Types.ObjectId;
+  escrowId: string;
+  escrowStatus: string;
+  inviteeEmail: string;
+  amount: number;
+  currency: string;
+  whoPaysFees: "buyer" | "seller" | "split";
+  createdAt?: Date;
+  updatedAt?: Date;
+  lastEventAt?: Date | null;
+};
+
 type LeanOrder = {
   orderNumber: string;
   status: string;
@@ -67,6 +97,7 @@ type LeanOrder = {
   paymentMethod: string;
   shippingAddress: CheckoutBodyInput["shippingAddress"];
   lineItems: LeanLineItem[];
+  sellerEscrows?: LeanSellerEscrow[];
   createdAt: Date;
   updatedAt: Date;
 };
@@ -89,6 +120,18 @@ function leanOrderToSummary(doc: LeanOrder): OrderSummaryJson {
       unitPrice: li.unitPrice,
       quantity: li.quantity,
       image: li.image,
+    })),
+    sellerEscrows: (doc.sellerEscrows ?? []).map((esc) => ({
+      sellerId: esc.sellerId.toString(),
+      escrowId: esc.escrowId,
+      escrowStatus: esc.escrowStatus,
+      inviteeEmail: esc.inviteeEmail,
+      amount: esc.amount,
+      currency: esc.currency,
+      whoPaysFees: esc.whoPaysFees,
+      createdAt: (esc.createdAt ?? doc.createdAt).toISOString(),
+      updatedAt: (esc.updatedAt ?? doc.updatedAt).toISOString(),
+      lastEventAt: esc.lastEventAt ? esc.lastEventAt.toISOString() : null,
     })),
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
@@ -197,7 +240,7 @@ async function checkoutOnce(
 
       const sellerIdSet = new Set(lineItems.map((li) => li.sellerId.toHexString()));
 
-      await Order.create(
+      const orderDocs = await Order.create(
         [
           {
             orderNumber,
@@ -205,8 +248,8 @@ async function checkoutOnce(
             status: "Processing",
             currency,
             subtotal,
-            shipping: SHIPPING_FLAT_USD,
-            total: subtotal + SHIPPING_FLAT_USD,
+            shipping: SHIPPING_FLAT_ETB,
+            total: subtotal + SHIPPING_FLAT_ETB,
             shippingAddress: body.shippingAddress,
             paymentMethod: body.paymentMethod,
             lineItems,
@@ -215,6 +258,85 @@ async function checkoutOnce(
         ],
         { session },
       );
+      const orderDoc = orderDocs[0];
+      if (!orderDoc) {
+        throw new AppError(500, "ORDER_WRITE_FAILED", "Order document was not created");
+      }
+
+      // ----- Ethitrust escrow creation (one per distinct seller on the order) -----
+      // Skip silently when ETHITRUST_API_KEY is unset so local development without a
+      // real Ethitrust key still works. When configured, any SDK failure aborts the
+      // transaction (rolling back the order + stock decrement + cart delete) so that
+      // we never end up with an unprotected order.
+      if (isEthitrustEnabled()) {
+        // Group line items by sellerId and compute the per-seller subtotal.
+        const subtotalsBySellerHex = new Map<string, number>();
+        for (const li of lineItems) {
+          const hex = li.sellerId.toHexString();
+          subtotalsBySellerHex.set(
+            hex,
+            (subtotalsBySellerHex.get(hex) ?? 0) + li.unitPrice * li.quantity,
+          );
+        }
+
+        // Pull every seller doc in one round-trip — we need `whoPaysFees` + `name`.
+        const sellerOids = [...subtotalsBySellerHex.keys()].map((h) => new Types.ObjectId(h));
+        const sellerDocs = await Seller.find({ _id: { $in: sellerOids } })
+          .session(session)
+          .lean()
+          .exec();
+        const sellerByHex = new Map(
+          sellerDocs.map((s) => [(s._id as Types.ObjectId).toHexString(), s]),
+        );
+
+        const inviteeEmail = body.shippingAddress.email.trim().toLowerCase();
+        const escrowsToWrite: Array<{
+          sellerId: Types.ObjectId;
+          escrowId: string;
+          escrowStatus: string;
+          inviteeEmail: string;
+          amount: number;
+          currency: string;
+          whoPaysFees: WhoPaysFees;
+        }> = [];
+
+        for (const [sellerHex, amount] of subtotalsBySellerHex.entries()) {
+          const sellerDoc = sellerByHex.get(sellerHex);
+          const whoPaysFees: WhoPaysFees =
+            (sellerDoc?.whoPaysFees as WhoPaysFees | undefined) ??
+            env.ETHITRUST_DEFAULT_WHO_PAYS_FEES;
+          const sellerName = typeof sellerDoc?.name === "string" ? sellerDoc.name : "";
+          const title = sellerName
+            ? `Order ${orderNumber} — ${sellerName}`
+            : `Order ${orderNumber}`;
+
+          const { escrowId, escrowStatus } = await createOrgEscrow({
+            inviteeEmail,
+            title,
+            amount,
+            currency,
+            whoPaysFees,
+            // Stable per (order, seller) so SDK-level retries dedupe.
+            idempotencyKey: `${orderNumber}:${sellerHex}`,
+          });
+
+          escrowsToWrite.push({
+            sellerId: new Types.ObjectId(sellerHex),
+            escrowId,
+            escrowStatus,
+            inviteeEmail,
+            amount,
+            currency,
+            whoPaysFees,
+          });
+        }
+
+        // Persist the escrow records on the order within the same transaction.
+        if (escrowsToWrite.length) {
+          orderDoc.set("sellerEscrows", escrowsToWrite);
+          await orderDoc.save({ session });
+        }
+      }
 
       await CartItem.deleteMany({ userId: buyerOid }).session(session).exec();
     });

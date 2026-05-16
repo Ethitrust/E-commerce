@@ -11,6 +11,7 @@ import { postCheckout } from "@/lib/api/checkout";
 import type { CheckoutPayload } from "@/lib/api/checkout";
 import { isDemoProfileUser } from "@/lib/auth/profile";
 import { putMeCart } from "@/lib/api/me";
+import { formatPrice } from "@/lib/utils";
 import { useAppStore } from "@/store/use-app-store";
 
 export const Route = createFileRoute("/checkout")({
@@ -53,7 +54,8 @@ function CheckoutPage() {
   }, [user]);
 
   const subtotal = cart.reduce((s, c) => s + c.product.price * c.quantity, 0);
-  const total = subtotal + 12;
+  const shipping = cart.length ? 300 : 0;
+  const total = subtotal + shipping;
 
   const placeOrder = async () => {
     if (!canCheckout) return;
@@ -292,7 +294,7 @@ function CheckoutPage() {
                       <p className="text-muted-foreground">Qty {c.quantity}</p>
                     </div>
                     <p className="text-sm font-semibold tabular-nums">
-                      ${(c.product.price * c.quantity).toLocaleString()}
+                      {formatPrice(c.product.price * c.quantity, c.product.currency)}
                     </p>
                   </div>
                 ))
@@ -302,15 +304,15 @@ function CheckoutPage() {
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <dt>Subtotal</dt>
-                <dd className="tabular-nums">${subtotal.toLocaleString()}</dd>
+                <dd className="tabular-nums">{formatPrice(subtotal)}</dd>
               </div>
               <div className="flex justify-between">
                 <dt>Shipping</dt>
-                <dd className="tabular-nums">$12</dd>
+                <dd className="tabular-nums">{formatPrice(shipping)}</dd>
               </div>
               <div className="flex justify-between text-base font-bold">
                 <dt>Total</dt>
-                <dd className="tabular-nums">${total.toLocaleString()}</dd>
+                <dd className="tabular-nums">{formatPrice(total)}</dd>
               </div>
             </dl>
           </aside>

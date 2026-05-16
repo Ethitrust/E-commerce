@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { fetchCategories, fetchProductsList } from "@/lib/api/catalog";
+import { formatPrice } from "@/lib/utils";
 
 interface SearchParams {
   q?: string;
@@ -36,7 +37,7 @@ export const Route = createFileRoute("/products/")({
 function ProductsPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const [price, setPrice] = useState<number[]>([0, 3000]);
+  const [price, setPrice] = useState<number[]>([0, 300000]);
   const [openFilters, setOpenFilters] = useState(false);
   const [conds, setConds] = useState<string[]>([]);
 
@@ -106,10 +107,10 @@ function ProductsPage() {
         <h4 className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Price range
         </h4>
-        <Slider value={price} onValueChange={setPrice} min={0} max={3000} step={50} />
+        <Slider value={price} onValueChange={setPrice} min={0} max={300000} step={1000} />
         <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-          <span>${price[0]}</span>
-          <span>${price[1]}</span>
+          <span>{formatPrice(price[0])}</span>
+          <span>{formatPrice(price[1])}</span>
         </div>
       </div>
       <div>

@@ -11,6 +11,9 @@ const sellerStatsSchema = new Schema(
 
 const SELLER_STATUS = ["pending", "approved", "suspended"] as const;
 
+export const SELLER_WHO_PAYS_FEES = ["buyer", "seller", "split"] as const;
+export type SellerWhoPaysFees = (typeof SELLER_WHO_PAYS_FEES)[number];
+
 const sellerSchema = new Schema(
   {
     ownerUserId: {
@@ -39,6 +42,15 @@ const sellerSchema = new Schema(
       type: String,
       enum: SELLER_STATUS,
       default: "pending",
+    },
+    /**
+     * Which side of an Ethitrust org-escrow pays the platform fee.
+     * `split` mirrors the marketplace default.
+     */
+    whoPaysFees: {
+      type: String,
+      enum: SELLER_WHO_PAYS_FEES,
+      default: "split" satisfies SellerWhoPaysFees,
     },
   },
   { timestamps: true },

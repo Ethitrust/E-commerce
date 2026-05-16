@@ -31,6 +31,26 @@ const orderLineSchema = new Schema(
   { _id: false },
 );
 
+/** One Ethitrust org-escrow per distinct seller on the order. */
+const orderSellerEscrowSchema = new Schema(
+  {
+    sellerId: { type: Schema.Types.ObjectId, ref: "Seller", required: true, index: true },
+    escrowId: { type: String, required: true, trim: true },
+    escrowStatus: { type: String, required: true, trim: true, default: "pending" },
+    inviteeEmail: { type: String, required: true, trim: true, lowercase: true },
+    amount: { type: Number, required: true, min: 0 },
+    currency: { type: String, required: true, trim: true },
+    whoPaysFees: {
+      type: String,
+      enum: ["buyer", "seller", "split"],
+      required: true,
+      default: "split",
+    },
+    lastEventAt: { type: Date, default: null },
+  },
+  { _id: false, timestamps: true },
+);
+
 const orderSchema = new Schema(
   {
     orderNumber: { type: String, required: true, unique: true, trim: true, index: true },
@@ -41,7 +61,7 @@ const orderSchema = new Schema(
       required: true,
       default: "Processing" satisfies OrderStatusUi,
     },
-    currency: { type: String, required: true, default: "USD", trim: true },
+    currency: { type: String, required: true, default: "ETB", trim: true },
     subtotal: { type: Number, required: true, min: 0 },
     shipping: { type: Number, required: true, min: 0 },
     total: { type: Number, required: true, min: 0 },
@@ -49,12 +69,16 @@ const orderSchema = new Schema(
     paymentMethod: { type: String, enum: PAYMENT_METHODS, required: true },
     lineItems: { type: [orderLineSchema], required: true, default: [] },
     sellerIds: [{ type: Schema.Types.ObjectId, ref: "Seller", index: true }],
+    /** Ethitrust escrows — one per seller. Empty if Ethitrust integration is disabled. */
+    sellerEscrows: { type: [orderSellerEscrowSchema], default: [] },
   },
   { timestamps: true },
 );
 
 orderSchema.index({ buyerUserId: 1, createdAt: -1 });
 orderSchema.index({ sellerIds: 1 });
+// Fast webhook lookup. Sparse so legacy orders without escrows don't conflict.
+orderSchema.index({ "sellerEscrows.escrowId": 1 }, { sparse: true });
 
 export type OrderDocument = InferSchemaType<typeof orderSchema> & {
   _id: Types.ObjectId;
