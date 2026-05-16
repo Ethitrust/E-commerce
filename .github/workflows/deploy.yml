@@ -21,7 +21,9 @@ jobs:
           script: |
             cd /var/www/nexus
 
-            git pull origin main
+            # Match GitHub exactly (avoids "divergent branches" when someone commits on the VPS)
+            git fetch origin
+            git reset --hard origin/main
 
             echo "=== Backend Deploy ==="
 
